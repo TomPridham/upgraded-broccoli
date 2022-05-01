@@ -2,6 +2,8 @@
 extern crate rocket;
 
 use rocket::data::{Data, ToByteUnit};
+use rocket::form::Form;
+use rocket::fs::TempFile;
 use serde::Serialize;
 
 type ArbitraryJson = serde_json::Map<String, serde_json::Value>;
@@ -16,32 +18,39 @@ enum UploadResponses {
     #[response(status = 200, content_type = "json")]
     RawCsvJson(String),
     #[response(status = 500, content_type = "json")]
-    UnableToConvertStreamJson(Err),
+    UnableToOpenFileJson(Err),
+    #[response(status = 500, content_type = "json")]
+    UnableToPersistFileJson(Err),
     #[response(status = 400, content_type = "json")]
     BadCsvParseJson(Err),
-    #[response(status = 400, content_type = "json")]
-    FileTooLargeJson(Err),
 }
 
-#[post("/upload-csv", data = "<data>")]
-async fn upload_csv(data: Data<'_>) -> UploadResponses {
-    let stream = data.open(5.mebibytes());
-    let s = match stream.into_string().await{
-        Ok(s) => s,
-        Err(_) => return UploadResponses::UnableToConvertStreamJson(Err{error:format!("Unable to open file. Please try again later. If this problem persists, please contact support")})
+#[derive(FromForm)]
+struct Upload<'r> {
+    file: TempFile<'r>,
+}
+const TRY_LATER: &'static str =
+    "Please try again later. If this problem persists, please contact support.";
+
+#[post("/upload-csv", data = "<upload>")]
+async fn upload_csv(upload: Form<Upload<'_>>) -> UploadResponses {
+    let path = match upload.file.path() {
+        Some(path) => path,
+        None => {
+            let error = format!("Unable to temporarily store file. {TRY_LATER}");
+            return UploadResponses::UnableToPersistFileJson(Err { error });
+        }
     };
 
-    if !s.is_complete() {
-        return UploadResponses::FileTooLargeJson(Err { error: format!("This api only supports file uploads up to 5MB. Please reduce the file size and try again") });
-    }
+    let file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(_) => {
+            let error = format!("Unable to acquire handle to file. {TRY_LATER}");
+            return UploadResponses::UnableToOpenFileJson(Err { error });
+        }
+    };
 
-    // skipping headers
-    let body = s.lines().skip(3).collect::<Vec<_>>();
-    // skipping trailing value
-    let (_, body) = body.split_last().unwrap();
-    let body = body.join("\n");
-
-    let mut reader = csv::Reader::from_reader(body.as_bytes());
+    let mut reader = csv::Reader::from_reader(file);
     let records = reader.deserialize::<ArbitraryJson>();
     let json: Vec<_> = records.flatten().collect();
 
@@ -49,7 +58,7 @@ async fn upload_csv(data: Data<'_>) -> UploadResponses {
         Ok(json_str) => json_str,
         Err(_) => {
             return UploadResponses::BadCsvParseJson(Err {
-                error: format!("Unable to parse csv"),
+                error: format!("Unable to parse CSV. Please correct your CSV and upload it again"),
             })
         }
     };
