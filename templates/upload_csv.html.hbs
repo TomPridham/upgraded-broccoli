@@ -1,0 +1,67 @@
+<html lang="en-US">
+  <head>
+    <meta charset="utf8" />
+    <meta lang="en-US" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="author" content="Tom Pridham" />
+    <meta name="description" content="here's the broccoli you asked for" />
+    <title>upgrade-broccoli.io</title>
+    <link rel="shortcut icon" href="/assets/favicon.ico" type="image/x-icon" />
+  </head>
+  <body>
+    <h2 style="text-align: center;">TRADE OFFER</h2>
+    <div style="display: flex; justify-content: space-between;">
+      <div>
+        <h3> I receive a CSV up to 1MB in size</h3>
+        <input id="file-uploader" type="file" style="display: none" />
+        <button id="file-button">ACCEPT TRADE</button>
+      </div>
+      <div>
+        <h3> You receive JSON based on your CSV</h3>
+        <button id="download-button" hidden>Download JSON</button>
+        <pre id="json"></pre>
+      </div>
+    </div>
+    <script type="text/javascript">
+      let csv_json;
+
+      const fileButton = document.getElementById("file-button");
+      const fileUploader = document.getElementById("file-uploader");
+      const downloadButton = document.getElementById("download-button");
+
+      const clickFileInput = () => {
+        if (fileUploader) {
+          fileUploader.click();
+        }
+      };
+      async function uploadFile() {
+        const csv = this.files[0];
+        let formData = new FormData();
+        formData.append("file", csv);
+
+        const res = await fetch("/upload-csv", { method: "POST", body: formData });
+        csv_json = await res.json();
+
+        downloadButton.hidden = false
+        const pre = document.getElementById("json");
+        pre.innerHTML = JSON.stringify(csv_json);
+      }
+
+      const downloadJson = async () => {
+        const blob = new Blob([JSON.stringify(csv_json)], {
+          type: "application/json",
+        });
+
+        const a = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        a.setAttribute("href", url);
+        a.setAttribute("download", "output.json");
+        a.click();
+      };
+
+      fileUploader.addEventListener("change", uploadFile, false);
+      fileButton.addEventListener("click", clickFileInput, false);
+      downloadButton.addEventListener("click", downloadJson, false);
+    </script>
+  </body>
+</html>

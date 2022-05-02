@@ -1,10 +1,11 @@
 #[macro_use]
 extern crate rocket;
 
-use rocket::data::{Data, ToByteUnit};
 use rocket::form::Form;
 use rocket::fs::TempFile;
+use rocket_dyn_templates::Template;
 use serde::Serialize;
+use std::collections::HashMap;
 
 type ArbitraryJson = serde_json::Map<String, serde_json::Value>;
 
@@ -29,6 +30,7 @@ enum UploadResponses {
 struct Upload<'r> {
     file: TempFile<'r>,
 }
+
 const TRY_LATER: &'static str =
     "Please try again later. If this problem persists, please contact support.";
 
@@ -65,7 +67,15 @@ async fn upload_csv(upload: Form<Upload<'_>>) -> UploadResponses {
     UploadResponses::RawCsvJson(json_str)
 }
 
+#[get("/")]
+fn index() -> Template {
+    let context: HashMap<String, ()> = HashMap::new();
+    Template::render("upload_csv", context)
+}
+
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![upload_csv])
+    rocket::build()
+        .mount("/", routes![index, upload_csv])
+        .attach(Template::fairing())
 }
