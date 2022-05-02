@@ -18,6 +18,7 @@
       </div>
       <div>
         <h3> You receive JSON based on your CSV</h3>
+        <p id="error-message"hidden style="color:red;"></p>
         <button id="download-button" hidden>Download JSON</button>
         <pre id="json"></pre>
       </div>
@@ -28,6 +29,7 @@
       const fileButton = document.getElementById("file-button");
       const fileUploader = document.getElementById("file-uploader");
       const downloadButton = document.getElementById("download-button");
+      const error_message = document.getElementById("error-message");
 
       const clickFileInput = () => {
         if (fileUploader) {
@@ -35,14 +37,24 @@
         }
       };
       async function uploadFile() {
+        error_message.hidden = true;
         const csv = this.files[0];
         let formData = new FormData();
         formData.append("file", csv);
 
-        const res = await fetch("/upload-csv", { method: "POST", body: formData });
-        csv_json = await res.json();
-
-        downloadButton.hidden = false
+        try {
+          const res = await fetch("/upload-csv", { method: "POST", body: formData });
+          if (!res.ok) {
+            let error_json = await res.json();
+            throw new Error(error_json.error);
+          }
+          csv_json = await res.json();
+        } catch (e) {
+          error_message.innerHTML = e.message;
+          error_message.hidden = false;
+          return;
+        }
+        downloadButton.hidden = false;
         const pre = document.getElementById("json");
         pre.innerHTML = JSON.stringify(csv_json);
       }

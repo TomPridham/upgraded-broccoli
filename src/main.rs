@@ -3,6 +3,7 @@ extern crate rocket;
 
 use rocket::form::Form;
 use rocket::fs::TempFile;
+use rocket::serde::json::Json;
 use rocket_dyn_templates::Template;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -19,11 +20,11 @@ enum UploadResponses {
     #[response(status = 200, content_type = "json")]
     RawCsvJson(String),
     #[response(status = 500, content_type = "json")]
-    UnableToOpenFileJson(Err),
+    UnableToOpenFileJson(Json<Err>),
     #[response(status = 500, content_type = "json")]
-    UnableToPersistFileJson(Err),
+    UnableToPersistFileJson(Json<Err>),
     #[response(status = 400, content_type = "json")]
-    BadCsvParseJson(Err),
+    BadCsvParseJson(Json<Err>),
 }
 
 #[derive(FromForm)]
@@ -40,7 +41,7 @@ async fn upload_csv(upload: Form<Upload<'_>>) -> UploadResponses {
         Some(path) => path,
         None => {
             let error = format!("Unable to temporarily store file. {TRY_LATER}");
-            return UploadResponses::UnableToPersistFileJson(Err { error });
+            return UploadResponses::UnableToPersistFileJson(Json(Err { error }));
         }
     };
 
@@ -48,7 +49,7 @@ async fn upload_csv(upload: Form<Upload<'_>>) -> UploadResponses {
         Ok(file) => file,
         Err(_) => {
             let error = format!("Unable to acquire handle to file. {TRY_LATER}");
-            return UploadResponses::UnableToOpenFileJson(Err { error });
+            return UploadResponses::UnableToOpenFileJson(Json(Err { error }));
         }
     };
 
@@ -59,9 +60,9 @@ async fn upload_csv(upload: Form<Upload<'_>>) -> UploadResponses {
     let json_str = match serde_json::to_string(&json) {
         Ok(json_str) => json_str,
         Err(_) => {
-            return UploadResponses::BadCsvParseJson(Err {
+            return UploadResponses::BadCsvParseJson(Json(Err {
                 error: format!("Unable to parse CSV. Please correct your CSV and upload it again"),
-            })
+            }))
         }
     };
     UploadResponses::RawCsvJson(json_str)

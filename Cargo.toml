@@ -1,16 +1,11 @@
-
 [package]
 name = "upgraded-broccoli"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 csv = "1.1.6"
-rocket = "0.5.0-rc.1"
-rocket_dyn_templates = {version = "0.1.0-rc.1",features = ["handlebars", "tera"]}
-
-
+rocket = { version = "0.5.0-rc.1", features = ["json"] }
+rocket_dyn_templates = { version = "0.1.0-rc.1", features = ["handlebars"] }
 serde = "1.0.136"
 serde_json = "1.0.80"
